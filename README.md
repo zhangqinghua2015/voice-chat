@@ -14,14 +14,14 @@
 ## 🏗️ 架构
 ```mermaid
 graph LR
-    A[用户发送语音] --> B[OpenClaw Gateway]
-    B --> C[Agent (主脑)]
-    C --> D{检测消息类型}
-    D -- 语音 --> E[自动调用 STT 工具]
-    E --> F[LLM 智能分析]
-    F --> G[自动调用 TTS 工具]
-    G --> H[发送语音回复]
-    D -- 文字 --> I[正常文字回复]
+    A[User sends voice] --> B[OpenClaw Gateway]
+    B --> C[Agent / Main Brain]
+    C --> D{Detect Message Type}
+    D -- Voice --> E[Auto Call STT Tool]
+    E --> F[LLM Smart Analysis]
+    F --> G[Auto Call TTS Tool]
+    G --> H[Send Voice Reply]
+    D -- Text --> I[Normal Text Reply]
 ```
 
 ---
