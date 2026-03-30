@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Vosk Model
+vosk-model*/
+*.zip
+
+# Temporary files
+*.ogg
+*.mp3
+*.wav
+/tmp/voice_chat_*
+/tmp/tts_temp_*
+/vosk_transcribe_*
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
