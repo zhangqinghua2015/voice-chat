@@ -148,6 +148,7 @@ openclaw gateway restart
 
 ---
 
+
 ### 步骤 6: 配置自动触发 (关键！)
 **Skill 不会自动触发**，必须在 `SOUL.md` 中添加指令。
 
@@ -161,34 +162,38 @@ openclaw gateway restart
 ## 🎤 语音消息自动处理流程
 当收到语音或音频消息时（`media.type` 为 `voice` 或 `audio`），**立即**执行以下自动化流程：
 
-1. **识别上下文**：
+1. **重点注意**：
+   - 以下所有处理步骤都要在当前接收到语音消息的会话中进行，也就是需要你自己执行，**绝对不能新开子会话去处理**！
+   - 如果缺少相关权限导致当前会话无法继续执行，应当立即停止处理，并将原因通过文字回复告知用户。
+
+2. **识别上下文**：
    - 获取当前消息的 **频道** (`channel`: 如 "telegram", "feishu")。
    - 获取 **发送者 ID** (`target`)。
    - 获取 **音频文件路径** (`audio_path`)。
 
-2. **语音转文字 (STT)**：
+3. **语音转文字 (STT)**：
    - 调用 **`voice-chat`** Skill 中的 **语音转写** 功能。
    - *实现方式*：执行脚本 `/root/.openclaw/workspace/skills/voice-chat/scripts/transcribe_audio.py <audio_path>`。
    - *注意*：如果路径不同，请查找 `voice-chat` Skill 安装目录下的 `transcribe_audio.py`。
 
-3. **生成智能回复**：
+4. **生成智能回复**：
    - 结合对话上下文，根据转写内容生成简短、自然的中文回复文本 (`reply_text`)。
 
-4. **文字转语音 (TTS)**：
+5. **文字转语音 (TTS)**：
    - 调用 **`voice-chat`** Skill 中的 **语音合成** 功能。
    - *实现方式*：执行脚本 `/root/.openclaw/workspace/skills/voice-chat/scripts/reply_with_tts.py "<reply_text>"`。
    - *注意*：获取生成的 `.ogg` 文件路径 (`output_path`)。
 
-5. **发送回复**：
+6. **发送回复**：
    - 使用 `message.send` 工具。
-   - **关键**：`channel` 参数必须严格等于 **步骤 1** 中识别的当前频道。
-   - `target` 参数等于 **步骤 1** 中的发送者 ID。
-   - `media` 参数等于 **步骤 4** 生成的音频文件路径。
+   - **关键**：`channel` 参数必须严格等于 **步骤 2** 中识别的当前频道。
+   - `target` 参数等于 **步骤 2** 中的发送者 ID。
+   - `media` 参数等于 **步骤 5** 生成的音频文件路径。
 
 ---
 
 **异常处理**：
-- 如果 STT 或 TTS 脚本执行失败，直接发送文字回复告知用户“语音处理失败，请重试”。
+- 如果 STT 或 TTS 脚本执行失败，直接发送文字回复告知用户"语音处理失败，请重试"。
 - 如果生成语音文件为空，不要发送。
 ```
 
