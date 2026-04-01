@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-04-01
+
+### Fixed
+- 修正 Sherpa-ONNX 模型名称：sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+- 修正模型文件：model.onnx（而非 model.int8.onnx）
+- 修正下载方式：使用 GitHub releases 而非 huggingface
+- 更新配置文件和文档
+
 ## [2.3.1] - 2026-04-01
 
 ### Fixed
