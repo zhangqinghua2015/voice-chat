@@ -430,17 +430,18 @@ voice-chat/
 MIT
 
 ## 📅 更新日志
-- **v2.3.0 (2026-04-01)**:
+- **v2.3.2 (2026-04-01)**:
   - **重大更新**：集成 Sherpa-ONNX 引擎（首选 STT）
   - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）
   - **新增**：引擎策略配置（sherpa/vosk/auto）
   - **优化**：中英文混合识别准确率
-  - **优化**：内存占用（使用 int8 量化模型，600-800MB）
+  - **优化**：内存占用（使用 onnxruntime，约 1GB）
   - **优化**：移除 CUDA/NVIDIA 依赖，适合 termux 环境
   - **兼容**：保持 Vosk 作为备份方案
   - **更新**：依赖列表（新增 `sherpa-onnx`，移除 `funasr-onnx`, `librosa`, `scipy`）
   - **更新**：配置文件（新增 Sherpa-ONNX 相关配置）
   - **更新**：文档（DESIGN.md, README.md, CHANGELOG.md）
+  - **修复**：修正 Sherpa-ONNX 模型名称和下载方式
 - **v2.2.1 (2026-03-31)**:
   - 新增 `SOUL.md` 配置最佳实践（动态频道识别）。
 - **v2.1.5**: 新增 Edge TTS 失败自动降级到 `pyttsx3`。

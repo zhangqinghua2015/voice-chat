@@ -32,13 +32,14 @@
 - 配置集中化（pydantic + dotenv）
 - 提取通用校验与依赖检查（utils）
 
-### v2.3.0 - 双引擎升级（Sherpa-ONNX）
+### v2.3.2 - 双引擎升级（Sherpa-ONNX）
 - **新增**：Sherpa-ONNX 引擎（首选，中英文混合识别）
 - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）
 - **新增**：引擎策略配置（sherpa/vosk/auto）
 - **优化**：中英文混合识别准确率
 - **优化**：内存占用（使用 onnxruntime，约 1GB）
 - **兼容**：保持 Vosk 作为备份方案
+- **修复**：修正 Sherpa-ONNX 模型名称和下载方式
 
 ## 渠道支持现状
 | 渠道 | 状态 | 说明 |
