@@ -4,6 +4,8 @@
 **Skill 名称**: `voice-chat` | **安装目录**: `voice-chat`
 
 ## 🎯 核心特性
+- **双引擎 STT**：SenseVoice（首选，中英文混合）+ Vosk（备份）
+- **自动 Fallback**：SenseVoice 失败时自动切换 Vosk
 - **即时自动响应**：收到语音消息后自动触发（需配置 `SOUL.md`），无需轮询或手动命令。
 - **零配置**：无需 `BOT_TOKEN` 或 `CHAT_ID`，自动利用 OpenClaw 会话上下文。
 - **高质量音频**：针对飞书/Telegram 优化的 OGG/Opus 格式 (48kHz, 单声道)。
@@ -17,11 +19,17 @@ graph LR
     A[User sends voice] --> B[OpenClaw Gateway]
     B --> C[Agent / Main Brain]
     C --> D{Detect Message Type}
-    D -- Voice --> E[Auto Call STT Tool]
-    E --> F[LLM Smart Analysis]
-    F --> G[Auto Call TTS Tool]
-    G --> H[Send Voice Reply]
-    D -- Text --> I[Normal Text Reply]
+    D -- Voice --> E{STT Engine}
+    E -- SenseVoice --> F1[Transcribe]
+    E -- Fallback --> F2[Vosk]
+    F1 --> G[LLM Smart Analysis]
+    F2 --> G
+    G --> H{TTS Engine}
+    H -- Edge TTS --> I1[Synthesize]
+    H -- Fallback --> I2[pyttsx3]
+    I1 --> J[Send Voice Reply]
+    I2 --> J
+    D -- Text --> K[Normal Text Reply]
 ```
 
 ---
@@ -78,16 +86,23 @@ pip install -r requirements.txt
 ```
 
 **依赖列表说明**：
-- `vosk`: 离线语音识别 (STT) 引擎。
+- `funasr-onnx`: SenseVoice 引擎（首选 STT，中英文混合识别）。
+- `vosk`: Vosk 引擎（备份 STT，离线识别）。
 - `edge-tts`: 微软 Edge TTS 接口 (首选，免费，高质量)。
 - `pyttsx3`: 本地 TTS 引擎 (Edge TTS 失败时的降级方案)。
 - `pydantic`, `pydantic-settings`: 配置管理。
 - `python-dotenv`: 环境变量加载。
+- `librosa`, `scipy`: 音频处理（SenseVoice 依赖）。
 
 ---
 
 ### 步骤 3: 下载语音识别模型
-`vosk` 引擎需要中文模型文件。首次运行前必须下载。
+
+#### 3.1 下载 SenseVoice 模型（首选）
+SenseVoice 模型会在首次运行时自动下载到 `~/.cache/modelscope/`，无需手动下载。
+
+#### 3.2 下载 Vosk 模型（备份）
+Vosk 引擎需要中文模型文件。首次运行前必须下载。
 
 ```bash
 # 创建模型目录
@@ -114,16 +129,19 @@ ls /tmp/vosk-model/vosk-model-small-cn-0.22/
 ```bash
 # 在项目根目录创建 .env 文件
 cat > .env << EOF
-# 临时文件目录 (默认：/tmp/voice-chat)
-TEMP_DIR=/tmp/voice-chat
+# STT 引擎策略（默认：auto，即 SenseVoice 失败时自动切换 Vosk）
+STT_ENGINE=auto
 
-# Vosk 模型路径 (默认：/tmp/vosk-model/vosk-model-small-cn-0.22)
+# SenseVoice 模型路径（默认：/tmp/sensevoice-model）
+SENSEVOICE_MODEL_DIR=/tmp/sensevoice-model
+
+# Vosk 模型路径（默认：/tmp/vosk-model/vosk-model-small-cn-0.22）
 VOSK_MODEL_DIR=/tmp/vosk-model/vosk-model-small-cn-0.22
 
-# TTS 音色 (默认：zh-CN-YunxiNeural)
+# TTS 音色（默认：zh-CN-YunxiNeural）
 DEFAULT_VOICE=zh-CN-YunxiNeural
 
-# 可选：LLM 配置 (如果脚本需要调用外部 LLM)
+# 可选：LLM 配置（如果脚本需要调用外部 LLM）
 LLM_BASE_URL=https://your-llm-endpoint.com/v1
 LLM_API_KEY=your-api-key
 LLM_MODEL=your-model-name
@@ -210,12 +228,16 @@ openclaw gateway restart
 |------|------|----------|------|
 | **系统** | `ffmpeg` | ✅ 必需 | 音频格式转换 |
 | **系统** | `espeak-ng` | ⚠️ 推荐 | 本地 TTS 引擎 (Edge TTS 失败时降级用) |
-| **Python** | `vosk` | ✅ 必需 | 语音识别 (STT) |
+| **Python** | `funasr-onnx` | ✅ 必需 | SenseVoice 引擎（首选 STT） |
+| **Python** | `vosk` | ✅ 必需 | Vosk 引擎（备份 STT） |
 | **Python** | `edge-tts` | ✅ 必需 | 云端 TTS (首选) |
 | **Python** | `pyttsx3` | ⚠️ 推荐 | 本地 TTS (降级用) |
 | **Python** | `pydantic` | ✅ 必需 | 配置管理 |
 | **Python** | `python-dotenv` | ✅ 必需 | 环境变量加载 |
-| **模型** | `vosk-model-small-cn-0.22` | ✅ 必需 | 中文语音识别模型 |
+| **Python** | `librosa` | ✅ 必需 | 音频处理（SenseVoice 依赖） |
+| **Python** | `scipy` | ✅ 必需 | 科学计算（SenseVoice 依赖） |
+| **模型** | `SenseVoiceSmall` | ✅ 必需 | SenseVoice 模型（自动下载） |
+| **模型** | `vosk-model-small-cn-0.22` | ✅ 必需 | Vosk 中文模型（手动下载） |
 
 ---
 
@@ -226,10 +248,15 @@ openclaw gateway restart
 # 激活虚拟环境
 source .venv/bin/activate
 
-# 运行转写 (替换为你的音频文件路径)
+# 运行转写（使用自动 fallback 策略）
 python scripts/transcribe_audio.py /path/to/test.ogg
+
+# 指定引擎
+python scripts/transcribe_audio.py /path/to/test.ogg --engine sensevoice  # 仅 SenseVoice
+python scripts/transcribe_audio.py /path/to/test.ogg --engine vosk        # 仅 Vosk
+python scripts/transcribe_audio.py /path/to/test.ogg --engine auto        # 自动 fallback（推荐）
 ```
-**预期输出**：转写的中文文本。
+**预期输出**：转写的中文文本（中英文混合）。
 
 ### 测试 TTS (文字转语音)
 ```bash
@@ -249,10 +276,14 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 ## 🛠️ 脚本说明
 
 ### `transcribe_audio.py`
-将音频文件转写为文本。
-- **参数**：`audio_path` (音频文件路径)
-- **引擎**：Vosk (离线，中文小模型)
+将音频文件转写为文本（支持双引擎）。
+- **参数**：`audio_path` (音频文件路径), `--engine` (引擎策略)
+- **引擎**：SenseVoice（首选）→ 自动 fallback 到 Vosk
 - **支持格式**：OGG/Opus, WAV, MP3
+- **引擎策略**：
+  - `sensevoice`: 仅使用 SenseVoice
+  - `vosk`: 仅使用 Vosk
+  - `auto`: 自动 fallback（推荐）
 
 ### `reply_with_tts.py`
 将文本合成为语音文件。
@@ -268,10 +299,35 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 ### 环境变量
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| `TEMP_DIR` | `/tmp/voice-chat` | 临时文件目录 |
+| `STT_ENGINE` | `auto` | STT 引擎策略（sensevoice/vosk/auto） |
+| `SENSEVOICE_MODEL_DIR` | `/tmp/sensevoice-model` | SenseVoice 模型目录 |
+| `SENSEVOICE_MODEL_NAME` | `iic/SenseVoiceSmall` | SenseVoice 模型名称 |
 | `VOSK_MODEL_DIR` | `/tmp/vosk-model/vosk-model-small-cn-0.22` | Vosk 模型路径 |
 | `DEFAULT_VOICE` | `zh-CN-YunxiNeural` | TTS 默认音色 |
 | `EDGE_TTS_BIN` | `edge-tts` | Edge TTS 可执行文件路径 |
+
+### STT 引擎对比
+
+#### SenseVoice（首选）
+- **优势**：
+  - 原生支持中英文混合识别
+  - 识别准确率优于 Vosk
+  - 推理速度快（70ms 处理 10 秒音频）
+  - 支持多语言（50+ 语言）
+- **劣势**：
+  - 依赖 `funasr-onnx`（需额外安装）
+  - 模型文件较大（~100MB）
+  - 首次加载较慢
+
+#### Vosk（备份）
+- **优势**：
+  - 轻量级，模型文件小（~40MB）
+  - 纯 Python 实现，部署简单
+  - 离线运行，无网络依赖
+- **劣势**：
+  - 中英文混合识别效果一般
+  - 需要语言切换
+  - 准确率低于 SenseVoice
 
 ### 飞书/Telegram 音频优化参数
 确保输出满足以下参数，否则会有杂音：
@@ -289,36 +345,43 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 
 ## 🐛 故障排查
 
-### 问题 1: 语音回复是杂音
+### 问题 1: SenseVoice 转写失败
+- **原因**：`funasr-onnx` 未安装或模型下载失败。
+- **解决**：
+  - 运行 `pip install funasr-onnx`。
+  - 检查网络连接，模型会自动下载到 `~/.cache/modelscope/`。
+  - 使用 `--engine vosk` 强制使用 Vosk。
+
+### 问题 2: 语音回复是杂音
 - **原因**：音频格式不匹配 (采样率/声道错误)。
 - **解决**：确保 `reply_with_tts.py` 使用正确的 ffmpeg 参数 (已默认配置)。
 
-### 问题 2: TTS 超时或失败
+### 问题 3: TTS 超时或失败
 - **原因**：网络连接问题 (Edge TTS 服务器)。
 - **解决**：
   - 检查网络连接。
   - 重试 (通常第二次成功)。
   - 确保已安装 `espeak-ng`，脚本会自动降级到本地 TTS。
 
-### 问题 3: 转写失败或识别错误
+### 问题 4: Vosk 转写失败或识别错误
 - **原因**：Vosk 模型未下载或音频格式不支持。
 - **解决**：
-  - 运行步骤 3 下载模型。
+  - 运行步骤 3.2 下载模型。
   - 确保音频是 OGG/Opus, WAV, MP3 格式。
   - 检查 `VOSK_MODEL_DIR` 环境变量。
 
-### 问题 4: `pyttsx3` 报错 "eSpeak not installed"
+### 问题 5: `pyttsx3` 报错 "eSpeak not installed"
 - **原因**：本地 TTS 引擎缺失。
 - **解决**：运行 `sudo apt-get install espeak-ng`。
 
-### 问题 5: Skill 没有自动触发
+### 问题 6: Skill 没有自动触发
 - **原因**：未在 `SOUL.md` 中添加触发指令，或指令格式错误。
 - **解决**：
   - 参考 **步骤 6** 配置 `SOUL.md`。
   - **确保** `SOUL.md` 中**动态获取频道**（不要硬编码 `feishu` 或 `telegram`）。
   - 重启 Gateway。
 
-### 问题 6: 在 Telegram 频道调用飞书 API (或反之)
+### 问题 7: 在 Telegram 频道调用飞书 API (或反之)
 - **原因**：`SOUL.md` 中硬编码了 `channel: feishu`，没有动态获取当前频道。
 - **解决**：
   - 检查 `SOUL.md`，确保 `message.send` 的 `channel` 参数是**动态变量**（如 `当前消息的 channel`）。
@@ -332,9 +395,11 @@ voice-chat/
 ├── README.md           # 本文档
 ├── requirements.txt    # Python 依赖
 ├── SKILL.md           # ClawHub 技能描述
+├── DESIGN.md          # 设计文档
+├── CHANGELOG.md       # 更新日志
 ├── scripts/
 │   ├── config.py      # 配置管理
-│   ├── transcribe_audio.py  # STT 转写脚本
+│   ├── transcribe_audio.py  # STT 转写脚本（双引擎）
 │   ├── reply_with_tts.py    # TTS 合成脚本
 │   ├── utils.py       # 工具函数
 │   └── ...
@@ -345,12 +410,17 @@ voice-chat/
 MIT
 
 ## 📅 更新日志
+- **v2.0.0 (2026-04-01)**:
+  - **重大更新**：集成 SenseVoice 引擎（首选 STT）
+  - **新增**：自动 fallback 机制（SenseVoice 失败时切换 Vosk）
+  - **新增**：引擎策略配置（sensevoice/vosk/auto）
+  - **优化**：中英文混合识别准确率
+  - **兼容**：保持 Vosk 作为备份方案
+  - **更新**：依赖列表（新增 `funasr-onnx`, `librosa`, `scipy`）
+  - **更新**：配置文件（新增 SenseVoice 相关配置）
+  - **更新**：文档（DESIGN.md, README.md, CHANGELOG.md）
 - **v2.2.1 (2026-03-31)**:
   - 新增 `SOUL.md` 配置最佳实践（动态频道识别）。
-- **文档优化**：更新语音流程第 1 点为"重点注意"，强调严禁新开子会话。
-  - 完善新手前置步骤文档。
-  - 修复 `config.py` 环境变量验证问题 (`extra = "ignore"`)。
-  - 优化飞书音频格式 (`.ogg` 容器)。
 - **v2.1.5**: 新增 Edge TTS 失败自动降级到 `pyttsx3`。
 - **v2.1.4**: 发布到 ClawHub，修复 SKILL.md 格式。
 - **v2.1.0**: 重构为纯 Skill 架构，移除插件依赖。

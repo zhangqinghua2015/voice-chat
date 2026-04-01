@@ -14,7 +14,14 @@ from dotenv import load_dotenv
 
 
 class Settings(BaseSettings):
-    # Speech-to-text (Vosk)
+    # STT Engine Selection
+    STT_ENGINE: str = "sensevoice"  # Options: "sensevoice", "vosk", "auto"
+
+    # SenseVoice Configuration
+    SENSEVOICE_MODEL_DIR: str = "/tmp/sensevoice-model"
+    SENSEVOICE_MODEL_NAME: str = "iic/SenseVoiceSmall"
+
+    # Vosk Configuration (fallback)
     VOSK_PYTHON: str = sys.executable
     VOSK_MODEL_DIR: str = "/tmp/vosk-model/vosk-model-small-cn-0.22"
 

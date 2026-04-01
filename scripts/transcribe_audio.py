@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-音频转写模块：使用 Vosk 模型将音频文件转写为文本。
+音频转写模块：支持 SenseVoice（首选）和 Vosk（备份）双引擎。
 支持格式：OGG/Opus, WAV, MP3 等 (需 ffmpeg 支持)
-模型：Vosk 中文小模型 (vosk-model-small-cn-0.22)
+模型：
+- SenseVoice: iic/SenseVoiceSmall (中英文混合，高准确率)
+- Vosk: vosk-model-small-cn-0.22 (中文小模型，备份方案)
 """
 
 import argparse
@@ -32,9 +34,12 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 
 from config import get_settings
 _settings = get_settings()
+STT_ENGINE = _settings.STT_ENGINE
+SENSEVOICE_MODEL_DIR = _settings.SENSEVOICE_MODEL_DIR
+SENSEVOICE_MODEL_NAME = _settings.SENSEVOICE_MODEL_NAME
 VENV_PY = _settings.VOSK_PYTHON
-MODEL_DIR = _settings.VOSK_MODEL_DIR
-TEMP_WAV_PREFIX = 'vosk_transcribe_'
+VOSK_MODEL_DIR = _settings.VOSK_MODEL_DIR
+TEMP_WAV_PREFIX = 'transcribe_'
 TEMP_WAV_SUFFIX = '.wav'
 
 
@@ -43,38 +48,73 @@ class TranscriptionError(Exception):
     pass
 
 
-def transcribe(src_audio: str, model_dir: Optional[str] = None) -> str:
+def transcribe_with_sensevoice(src_audio: str) -> str:
     """
-    将音频文件转写为文本。
+    使用 SenseVoice 模型转写音频（首选引擎）。
 
     Args:
-        src_audio: 输入音频文件路径 (支持 ogg, opus, wav, mp3 等)
-        model_dir: Vosk 模型目录路径，默认为配置常量
+        src_audio: 输入音频文件路径
 
     Returns:
         转写后的文本内容
 
     Raises:
-        FileNotFoundError: 音频文件不存在
-        RuntimeError: 模型未找到或转写失败
-        subprocess.CalledProcessError: ffmpeg 转换失败
-
-    Example:
-        >>> text = transcribe('/tmp/audio.ogg')
-        >>> print(text)
-        '你好，这是一个测试'
+        TranscriptionError: SenseVoice 转写失败
     """
-    src_audio = ensure_file(src_audio)
+    try:
+        from funasr_onnx import AutoModel
 
-    model_dir = model_dir or MODEL_DIR
-    if not os.path.isdir(model_dir):
-        raise RuntimeError(f"Vosk 模型目录不存在：{model_dir}")
+        logger.info(f"使用 SenseVoice 转写音频：{src_audio}")
 
-    if shutil.which('ffmpeg') is None:
-        raise TranscriptionError("ffmpeg 未安装或不在 PATH 中")
+        # 加载模型
+        model = AutoModel(
+            model=SENSEVOICE_MODEL_NAME,
+            model_revision="v2.0.4",
+            vad_kwargs={"max_single_segment_time": 30000},
+            device="cpu"  # termux 环境使用 CPU
+        )
 
-    logger.info(f"开始转写音频：{src_audio}")
-    logger.info(f"使用模型目录：{model_dir}")
+        # 转写
+        res = model.generate(
+            input=src_audio,
+            cache={},
+            language="auto",  # 自动识别语言（中英文混合）
+            use_itn=True,
+        )
+
+        # 提取文本
+        if res and len(res) > 0:
+            text = res[0].get("text", "")
+            logger.info(f"SenseVoice 转写完成：{text}")
+            return text
+        else:
+            raise TranscriptionError("SenseVoice 转写结果为空")
+
+    except ImportError as e:
+        logger.error(f"SenseVoice 依赖未安装：{e}")
+        raise TranscriptionError(f"SenseVoice 依赖未安装，请运行：pip install funasr-onnx")
+    except Exception as e:
+        logger.error(f"SenseVoice 转写失败：{e}")
+        raise TranscriptionError(f"SenseVoice 转写失败：{e}")
+
+
+def transcribe_with_vosk(src_audio: str) -> str:
+    """
+    使用 Vosk 模型转写音频（备份引擎）。
+
+    Args:
+        src_audio: 输入音频文件路径
+
+    Returns:
+        转写后的文本内容
+
+    Raises:
+        TranscriptionError: Vosk 转写失败
+    """
+    if not os.path.isdir(VOSK_MODEL_DIR):
+        raise RuntimeError(f"Vosk 模型目录不存在：{VOSK_MODEL_DIR}")
+
+    logger.info(f"使用 Vosk 转写音频：{src_audio}")
 
     # 创建临时 WAV 文件
     with tempfile.NamedTemporaryFile(
@@ -116,7 +156,7 @@ import wave
 from vosk import Model, KaldiRecognizer
 
 wav_path = {repr(wav_path)}
-model_dir = {repr(model_dir)}
+model_dir = {repr(VOSK_MODEL_DIR)}
 
 wf = wave.open(wav_path, 'rb')
 model = Model(model_dir)
@@ -148,17 +188,17 @@ print(' '.join(texts).strip())
             stderr=subprocess.PIPE
         )
         result_text = output.strip()
-        logger.info(f"转写完成：{result_text}")
+        logger.info(f"Vosk 转写完成：{result_text}")
         return result_text
 
     except subprocess.TimeoutExpired:
-        logger.error("转写过程超时")
-        raise TranscriptionError("转写过程超时")
+        logger.error("Vosk 转写过程超时")
+        raise TranscriptionError("Vosk 转写过程超时")
     except subprocess.CalledProcessError as e:
         # Python 3.13+ 中 stderr 已经是 str，不需要 decode
         stderr_msg = e.stderr if isinstance(e.stderr, str) else e.stderr.decode('utf-8', errors='ignore') if e.stderr else '未知错误'
-        logger.error(f"转写失败：{stderr_msg}")
-        raise TranscriptionError(f"转写失败：{stderr_msg}")
+        logger.error(f"Vosk 转写失败：{stderr_msg}")
+        raise TranscriptionError(f"Vosk 转写失败：{stderr_msg}")
     finally:
         # 清理临时 WAV 文件
         if os.path.exists(wav_path):
@@ -169,14 +209,80 @@ print(' '.join(texts).strip())
                 logger.warning(f"无法删除临时文件 {wav_path}: {e}")
 
 
+def transcribe(src_audio: str, engine: Optional[str] = None) -> str:
+    """
+    将音频文件转写为文本（支持双引擎 fallback）。
+
+    Args:
+        src_audio: 输入音频文件路径 (支持 ogg, opus, wav, mp3 等)
+        engine: 指定引擎 ("sensevoice", "vosk", "auto")，默认为配置值
+
+    Returns:
+        转写后的文本内容
+
+    Raises:
+        FileNotFoundError: 音频文件不存在
+        TranscriptionError: 所有引擎均失败
+
+    Example:
+        >>> text = transcribe('/tmp/audio.ogg')
+        >>> print(text)
+        '你好，这是一个测试'
+    """
+    src_audio = ensure_file(src_audio)
+
+    if shutil.which('ffmpeg') is None:
+        raise TranscriptionError("ffmpeg 未安装或不在 PATH 中")
+
+    # 确定使用的引擎
+    engine = engine or STT_ENGINE
+
+    logger.info(f"开始转写音频：{src_audio}")
+    logger.info(f"使用引擎策略：{engine}")
+
+    # 策略 1: 仅使用 SenseVoice
+    if engine == "sensevoice":
+        try:
+            return transcribe_with_sensevoice(src_audio)
+        except Exception as e:
+            logger.error(f"SenseVoice 转写失败：{e}")
+            raise TranscriptionError(f"SenseVoice 转写失败：{e}")
+
+    # 策略 2: 仅使用 Vosk
+    elif engine == "vosk":
+        try:
+            return transcribe_with_vosk(src_audio)
+        except Exception as e:
+            logger.error(f"Vosk 转写失败：{e}")
+            raise TranscriptionError(f"Vosk 转写失败：{e}")
+
+    # 策略 3: 自动 fallback（SenseVoice 失败时切换 Vosk）
+    elif engine == "auto":
+        # 首选 SenseVoice
+        try:
+            logger.info("尝试使用 SenseVoice...")
+            return transcribe_with_sensevoice(src_audio)
+        except Exception as e:
+            logger.warning(f"SenseVoice 失败，切换到 Vosk：{e}")
+            try:
+                return transcribe_with_vosk(src_audio)
+            except Exception as e2:
+                logger.error(f"Vosk 也失败了：{e2}")
+                raise TranscriptionError(f"所有引擎均失败：SenseVoice({e}), Vosk({e2})")
+
+    else:
+        raise TranscriptionError(f"未知的引擎策略：{engine}")
+
+
 def main():
     """命令行入口点"""
-    parser = argparse.ArgumentParser(description='将音频文件转写为文本')
+    parser = argparse.ArgumentParser(description='将音频文件转写为文本（支持 SenseVoice 和 Vosk 双引擎）')
     parser.add_argument('audio_file', help='输入音频文件路径')
     parser.add_argument(
-        '--model-dir',
+        '--engine', '-e',
+        choices=['sensevoice', 'vosk', 'auto'],
         default=None,
-        help='Vosk 模型目录（默认读取 VOSK_MODEL_DIR 或内置默认值）'
+        help='指定转写引擎（默认：auto，即 SenseVoice 失败时自动切换 Vosk）'
     )
     parser.add_argument(
         '--verbose', '-v',
@@ -190,7 +296,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     try:
-        transcript = transcribe(args.audio_file, model_dir=args.model_dir)
+        transcript = transcribe(args.audio_file, engine=args.engine)
         if transcript:
             print(transcript)
             sys.exit(0)
