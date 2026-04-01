@@ -410,7 +410,7 @@ voice-chat/
 MIT
 
 ## 📅 更新日志
-- **v2.0.0 (2026-04-01)**:
+- **v2.3.0 (2026-04-01)**:
   - **重大更新**：集成 SenseVoice 引擎（首选 STT）
   - **新增**：自动 fallback 机制（SenseVoice 失败时切换 Vosk）
   - **新增**：引擎策略配置（sensevoice/vosk/auto）

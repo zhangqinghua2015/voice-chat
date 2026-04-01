@@ -32,7 +32,7 @@
 - 配置集中化（pydantic + dotenv）
 - 提取通用校验与依赖检查（utils）
 
-### v2.0 - 双引擎升级
+### v2.3.0 - 双引擎升级
 - **新增**：SenseVoice 引擎（首选，中英文混合识别）
 - **新增**：自动 fallback 机制（SenseVoice 失败时切换 Vosk）
 - **新增**：引擎策略配置（sensevoice/vosk/auto）
