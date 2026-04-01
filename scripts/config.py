@@ -15,11 +15,12 @@ from dotenv import load_dotenv
 
 class Settings(BaseSettings):
     # STT Engine Selection
-    STT_ENGINE: str = "sensevoice"  # Options: "sensevoice", "vosk", "auto"
+    STT_ENGINE: str = "sherpa"  # Options: "sherpa", "vosk", "auto"
 
-    # SenseVoice Configuration
-    SENSEVOICE_MODEL_DIR: str = "/tmp/sensevoice-model"
-    SENSEVOICE_MODEL_NAME: str = "iic/SenseVoiceSmall"
+    # Sherpa-ONNX Configuration (SenseVoice)
+    SHERPA_MODEL_DIR: str = "/tmp/sherpa-model"
+    SHERPA_MODEL_NAME: str = "sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords"
+    SHERPA_NUM_THREADS: int = 4
 
     # Vosk Configuration (fallback)
     VOSK_PYTHON: str = sys.executable

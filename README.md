@@ -4,8 +4,8 @@
 **Skill 名称**: `voice-chat` | **安装目录**: `voice-chat`
 
 ## 🎯 核心特性
-- **双引擎 STT**：SenseVoice（首选，中英文混合）+ Vosk（备份）
-- **自动 Fallback**：SenseVoice 失败时自动切换 Vosk
+- **双引擎 STT**：Sherpa-ONNX（首选，中英文混合）+ Vosk（备份）
+- **自动 Fallback**：Sherpa-ONNX 失败时自动切换 Vosk
 - **即时自动响应**：收到语音消息后自动触发（需配置 `SOUL.md`），无需轮询或手动命令。
 - **零配置**：无需 `BOT_TOKEN` 或 `CHAT_ID`，自动利用 OpenClaw 会话上下文。
 - **高质量音频**：针对飞书/Telegram 优化的 OGG/Opus 格式 (48kHz, 单声道)。
@@ -20,7 +20,7 @@ graph LR
     B --> C[Agent / Main Brain]
     C --> D{Detect Message Type}
     D -- Voice --> E{STT Engine}
-    E -- SenseVoice --> F1[Transcribe]
+    E -- Sherpa-ONNX --> F1[Transcribe]
     E -- Fallback --> F2[Vosk]
     F1 --> G[LLM Smart Analysis]
     F2 --> G
@@ -86,20 +86,34 @@ pip install -r requirements.txt
 ```
 
 **依赖列表说明**：
-- `funasr-onnx`: SenseVoice 引擎（首选 STT，中英文混合识别）。
+- `sherpa-onnx`: Sherpa-ONNX 引擎（首选 STT，中英文混合识别，轻量级）。
 - `vosk`: Vosk 引擎（备份 STT，离线识别）。
 - `edge-tts`: 微软 Edge TTS 接口 (首选，免费，高质量)。
 - `pyttsx3`: 本地 TTS 引擎 (Edge TTS 失败时的降级方案)。
 - `pydantic`, `pydantic-settings`: 配置管理。
 - `python-dotenv`: 环境变量加载。
-- `librosa`, `scipy`: 音频处理（SenseVoice 依赖）。
+- `numpy`: 数值计算（Sherpa-ONNX 依赖）。
 
 ---
 
 ### 步骤 3: 下载语音识别模型
 
-#### 3.1 下载 SenseVoice 模型（首选）
-SenseVoice 模型会在首次运行时自动下载到 `~/.cache/modelscope/`，无需手动下载。
+#### 3.1 下载 Sherpa-ONNX 模型（首选）
+Sherpa-ONNX 模型需要手动下载。
+
+```bash
+# 创建模型目录
+mkdir -p /tmp/sherpa-model
+
+# 下载 Sherpa-ONNX SenseVoice 模型（int8 量化版，约 200MB）
+git clone https://huggingface.co/k2-fsa/sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords /tmp/sherpa-model/sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords
+
+# 验证
+ls /tmp/sherpa-model/sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords/
+# 应显示：model.int8.onnx, tokens.txt 等
+```
+
+**注意**：如果 huggingface 连不上，可以去 modelscope 找 sherpa-onnx-sense-voice 的镜像。
 
 #### 3.2 下载 Vosk 模型（备份）
 Vosk 引擎需要中文模型文件。首次运行前必须下载。
@@ -129,11 +143,13 @@ ls /tmp/vosk-model/vosk-model-small-cn-0.22/
 ```bash
 # 在项目根目录创建 .env 文件
 cat > .env << EOF
-# STT 引擎策略（默认：auto，即 SenseVoice 失败时自动切换 Vosk）
+# STT 引擎策略（默认：auto，即 Sherpa-ONNX 失败时自动切换 Vosk）
 STT_ENGINE=auto
 
-# SenseVoice 模型路径（默认：/tmp/sensevoice-model）
-SENSEVOICE_MODEL_DIR=/tmp/sensevoice-model
+# Sherpa-ONNX 模型路径（默认：/tmp/sherpa-model）
+SHERPA_MODEL_DIR=/tmp/sherpa-model
+SHERPA_MODEL_NAME=sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords
+SHERPA_NUM_THREADS=4
 
 # Vosk 模型路径（默认：/tmp/vosk-model/vosk-model-small-cn-0.22）
 VOSK_MODEL_DIR=/tmp/vosk-model/vosk-model-small-cn-0.22
@@ -228,15 +244,14 @@ openclaw gateway restart
 |------|------|----------|------|
 | **系统** | `ffmpeg` | ✅ 必需 | 音频格式转换 |
 | **系统** | `espeak-ng` | ⚠️ 推荐 | 本地 TTS 引擎 (Edge TTS 失败时降级用) |
-| **Python** | `funasr-onnx` | ✅ 必需 | SenseVoice 引擎（首选 STT） |
+| **Python** | `sherpa-onnx` | ✅ 必需 | Sherpa-ONNX 引擎（首选 STT） |
 | **Python** | `vosk` | ✅ 必需 | Vosk 引擎（备份 STT） |
 | **Python** | `edge-tts` | ✅ 必需 | 云端 TTS (首选) |
 | **Python** | `pyttsx3` | ⚠️ 推荐 | 本地 TTS (降级用) |
 | **Python** | `pydantic` | ✅ 必需 | 配置管理 |
 | **Python** | `python-dotenv` | ✅ 必需 | 环境变量加载 |
-| **Python** | `librosa` | ✅ 必需 | 音频处理（SenseVoice 依赖） |
-| **Python** | `scipy` | ✅ 必需 | 科学计算（SenseVoice 依赖） |
-| **模型** | `SenseVoiceSmall` | ✅ 必需 | SenseVoice 模型（自动下载） |
+| **Python** | `numpy` | ✅ 必需 | 数值计算（Sherpa-ONNX 依赖） |
+| **模型** | `sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords` | ✅ 必需 | Sherpa-ONNX 模型（手动下载） |
 | **模型** | `vosk-model-small-cn-0.22` | ✅ 必需 | Vosk 中文模型（手动下载） |
 
 ---
@@ -252,7 +267,7 @@ source .venv/bin/activate
 python scripts/transcribe_audio.py /path/to/test.ogg
 
 # 指定引擎
-python scripts/transcribe_audio.py /path/to/test.ogg --engine sensevoice  # 仅 SenseVoice
+python scripts/transcribe_audio.py /path/to/test.ogg --engine sherpa  # 仅 Sherpa-ONNX
 python scripts/transcribe_audio.py /path/to/test.ogg --engine vosk        # 仅 Vosk
 python scripts/transcribe_audio.py /path/to/test.ogg --engine auto        # 自动 fallback（推荐）
 ```
@@ -278,10 +293,10 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 ### `transcribe_audio.py`
 将音频文件转写为文本（支持双引擎）。
 - **参数**：`audio_path` (音频文件路径), `--engine` (引擎策略)
-- **引擎**：SenseVoice（首选）→ 自动 fallback 到 Vosk
+- **引擎**：Sherpa-ONNX（首选）→ 自动 fallback 到 Vosk
 - **支持格式**：OGG/Opus, WAV, MP3
 - **引擎策略**：
-  - `sensevoice`: 仅使用 SenseVoice
+  - `sherpa`: 仅使用 Sherpa-ONNX
   - `vosk`: 仅使用 Vosk
   - `auto`: 自动 fallback（推荐）
 
@@ -299,24 +314,25 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 ### 环境变量
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
-| `STT_ENGINE` | `auto` | STT 引擎策略（sensevoice/vosk/auto） |
-| `SENSEVOICE_MODEL_DIR` | `/tmp/sensevoice-model` | SenseVoice 模型目录 |
-| `SENSEVOICE_MODEL_NAME` | `iic/SenseVoiceSmall` | SenseVoice 模型名称 |
+| `STT_ENGINE` | `auto` | STT 引擎策略（sherpa/vosk/auto） |
+| `SHERPA_MODEL_DIR` | `/tmp/sherpa-model` | Sherpa-ONNX 模型目录 |
+| `SHERPA_MODEL_NAME` | `sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords` | Sherpa-ONNX 模型名称 |
+| `SHERPA_NUM_THREADS` | `4` | Sherpa-ONNX 线程数 |
 | `VOSK_MODEL_DIR` | `/tmp/vosk-model/vosk-model-small-cn-0.22` | Vosk 模型路径 |
 | `DEFAULT_VOICE` | `zh-CN-YunxiNeural` | TTS 默认音色 |
 | `EDGE_TTS_BIN` | `edge-tts` | Edge TTS 可执行文件路径 |
 
 ### STT 引擎对比
 
-#### SenseVoice（首选）
+#### Sherpa-ONNX（首选）
 - **优势**：
   - 原生支持中英文混合识别
   - 识别准确率优于 Vosk
-  - 推理速度快（70ms 处理 10 秒音频）
-  - 支持多语言（50+ 语言）
+  - 轻量级，只依赖 onnxruntime（几十MB）
+  - int8 量化模型，内存占用小（600-800MB）
+  - 无 CUDA/NVIDIA 依赖，适合 termux 环境
 - **劣势**：
-  - 依赖 `funasr-onnx`（需额外安装）
-  - 模型文件较大（~100MB）
+  - 需要下载模型文件（~200MB）
   - 首次加载较慢
 
 #### Vosk（备份）
@@ -345,11 +361,11 @@ file /tmp/voice-chat/voice_chat_xxx.ogg
 
 ## 🐛 故障排查
 
-### 问题 1: SenseVoice 转写失败
-- **原因**：`funasr-onnx` 未安装或模型下载失败。
+### 问题 1: Sherpa-ONNX 转写失败
+- **原因**：`sherpa-onnx` 未安装或模型下载失败。
 - **解决**：
-  - 运行 `pip install funasr-onnx`。
-  - 检查网络连接，模型会自动下载到 `~/.cache/modelscope/`。
+  - 运行 `pip install sherpa-onnx`。
+  - 检查模型文件是否下载到 `/tmp/sherpa-model/`。
   - 使用 `--engine vosk` 强制使用 Vosk。
 
 ### 问题 2: 语音回复是杂音
@@ -411,13 +427,15 @@ MIT
 
 ## 📅 更新日志
 - **v2.3.0 (2026-04-01)**:
-  - **重大更新**：集成 SenseVoice 引擎（首选 STT）
-  - **新增**：自动 fallback 机制（SenseVoice 失败时切换 Vosk）
-  - **新增**：引擎策略配置（sensevoice/vosk/auto）
+  - **重大更新**：集成 Sherpa-ONNX 引擎（首选 STT）
+  - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）
+  - **新增**：引擎策略配置（sherpa/vosk/auto）
   - **优化**：中英文混合识别准确率
+  - **优化**：内存占用（使用 int8 量化模型，600-800MB）
+  - **优化**：移除 CUDA/NVIDIA 依赖，适合 termux 环境
   - **兼容**：保持 Vosk 作为备份方案
-  - **更新**：依赖列表（新增 `funasr-onnx`, `librosa`, `scipy`）
-  - **更新**：配置文件（新增 SenseVoice 相关配置）
+  - **更新**：依赖列表（新增 `sherpa-onnx`，移除 `funasr-onnx`, `librosa`, `scipy`）
+  - **更新**：配置文件（新增 Sherpa-ONNX 相关配置）
   - **更新**：文档（DESIGN.md, README.md, CHANGELOG.md）
 - **v2.2.1 (2026-03-31)**:
   - 新增 `SOUL.md` 配置最佳实践（动态频道识别）。

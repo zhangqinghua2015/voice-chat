@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-音频转写模块：支持 SenseVoice（首选）和 Vosk（备份）双引擎。
+音频转写模块：支持 Sherpa-ONNX（首选）和 Vosk（备份）双引擎。
 支持格式：OGG/Opus, WAV, MP3 等 (需 ffmpeg 支持)
 模型：
-- SenseVoice: iic/SenseVoiceSmall (中英文混合，高准确率)
+- Sherpa-ONNX: sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords (中英文混合，int8 量化)
 - Vosk: vosk-model-small-cn-0.22 (中文小模型，备份方案)
 """
 
@@ -35,8 +35,9 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 from config import get_settings
 _settings = get_settings()
 STT_ENGINE = _settings.STT_ENGINE
-SENSEVOICE_MODEL_DIR = _settings.SENSEVOICE_MODEL_DIR
-SENSEVOICE_MODEL_NAME = _settings.SENSEVOICE_MODEL_NAME
+SHERPA_MODEL_DIR = _settings.SHERPA_MODEL_DIR
+SHERPA_MODEL_NAME = _settings.SHERPA_MODEL_NAME
+SHERPA_NUM_THREADS = _settings.SHERPA_NUM_THREADS
 VENV_PY = _settings.VOSK_PYTHON
 VOSK_MODEL_DIR = _settings.VOSK_MODEL_DIR
 TEMP_WAV_PREFIX = 'transcribe_'
@@ -48,9 +49,9 @@ class TranscriptionError(Exception):
     pass
 
 
-def transcribe_with_sensevoice(src_audio: str) -> str:
+def transcribe_with_sherpa(src_audio: str) -> str:
     """
-    使用 SenseVoice 模型转写音频（首选引擎）。
+    使用 Sherpa-ONNX 模型转写音频（首选引擎）。
 
     Args:
         src_audio: 输入音频文件路径
@@ -59,43 +60,57 @@ def transcribe_with_sensevoice(src_audio: str) -> str:
         转写后的文本内容
 
     Raises:
-        TranscriptionError: SenseVoice 转写失败
+        TranscriptionError: Sherpa-ONNX 转写失败
     """
     try:
-        from funasr_onnx import AutoModel
+        import sherpa_onnx
 
-        logger.info(f"使用 SenseVoice 转写音频：{src_audio}")
+        logger.info(f"使用 Sherpa-ONNX 转写音频：{src_audio}")
 
-        # 加载模型
-        model = AutoModel(
-            model=SENSEVOICE_MODEL_NAME,
-            model_revision="v2.0.4",
-            vad_kwargs={"max_single_segment_time": 30000},
-            device="cpu"  # termux 环境使用 CPU
+        # 模型路径
+        model_dir = os.path.join(SHERPA_MODEL_DIR, SHERPA_MODEL_NAME)
+        model_path = os.path.join(model_dir, "model.int8.onnx")
+        tokens_path = os.path.join(model_dir, "tokens.txt")
+
+        # 检查模型文件
+        if not os.path.exists(model_path):
+            raise TranscriptionError(
+                f"模型文件不存在：{model_path}\n"
+                f"请下载模型：\n"
+                f"git clone https://huggingface.co/k2-fsa/sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords {SHERPA_MODEL_DIR}"
+            )
+        if not os.path.exists(tokens_path):
+            raise TranscriptionError(f"Token 文件不存在：{tokens_path}")
+
+        # 配置识别器
+        config = sherpa_onnx.OfflineRecognizerConfig(
+            model=sherpa_onnx.OfflineModelConfig(
+                sense_voice=sherpa_onnx.OfflineSenseVoiceModelConfig(
+                    model=model_path,
+                    tokens=tokens_path,
+                    num_threads=SHERPA_NUM_THREADS,
+                ),
+            )
         )
 
-        # 转写
-        res = model.generate(
-            input=src_audio,
-            cache={},
-            language="auto",  # 自动识别语言（中英文混合）
-            use_itn=True,
-        )
+        # 初始化识别器
+        recognizer = sherpa_onnx.OfflineRecognizer(config)
 
-        # 提取文本
-        if res and len(res) > 0:
-            text = res[0].get("text", "")
-            logger.info(f"SenseVoice 转写完成：{text}")
-            return text
-        else:
-            raise TranscriptionError("SenseVoice 转写结果为空")
+        # 读取音频并识别
+        stream = recognizer.create_stream()
+        stream.accept_wave_file(src_audio)
+        recognizer.decode_stream(stream)
+
+        result_text = stream.result.text
+        logger.info(f"Sherpa-ONNX 转写完成：{result_text}")
+        return result_text
 
     except ImportError as e:
-        logger.error(f"SenseVoice 依赖未安装：{e}")
-        raise TranscriptionError(f"SenseVoice 依赖未安装，请运行：pip install funasr-onnx")
+        logger.error(f"Sherpa-ONNX 依赖未安装：{e}")
+        raise TranscriptionError(f"Sherpa-ONNX 依赖未安装，请运行：pip install sherpa-onnx")
     except Exception as e:
-        logger.error(f"SenseVoice 转写失败：{e}")
-        raise TranscriptionError(f"SenseVoice 转写失败：{e}")
+        logger.error(f"Sherpa-ONNX 转写失败：{e}")
+        raise TranscriptionError(f"Sherpa-ONNX 转写失败：{e}")
 
 
 def transcribe_with_vosk(src_audio: str) -> str:
@@ -215,7 +230,7 @@ def transcribe(src_audio: str, engine: Optional[str] = None) -> str:
 
     Args:
         src_audio: 输入音频文件路径 (支持 ogg, opus, wav, mp3 等)
-        engine: 指定引擎 ("sensevoice", "vosk", "auto")，默认为配置值
+        engine: 指定引擎 ("sherpa", "vosk", "auto")，默认为配置值
 
     Returns:
         转写后的文本内容
@@ -240,13 +255,13 @@ def transcribe(src_audio: str, engine: Optional[str] = None) -> str:
     logger.info(f"开始转写音频：{src_audio}")
     logger.info(f"使用引擎策略：{engine}")
 
-    # 策略 1: 仅使用 SenseVoice
-    if engine == "sensevoice":
+    # 策略 1: 仅使用 Sherpa-ONNX
+    if engine == "sherpa":
         try:
-            return transcribe_with_sensevoice(src_audio)
+            return transcribe_with_sherpa(src_audio)
         except Exception as e:
-            logger.error(f"SenseVoice 转写失败：{e}")
-            raise TranscriptionError(f"SenseVoice 转写失败：{e}")
+            logger.error(f"Sherpa-ONNX 转写失败：{e}")
+            raise TranscriptionError(f"Sherpa-ONNX 转写失败：{e}")
 
     # 策略 2: 仅使用 Vosk
     elif engine == "vosk":
@@ -256,19 +271,19 @@ def transcribe(src_audio: str, engine: Optional[str] = None) -> str:
             logger.error(f"Vosk 转写失败：{e}")
             raise TranscriptionError(f"Vosk 转写失败：{e}")
 
-    # 策略 3: 自动 fallback（SenseVoice 失败时切换 Vosk）
+    # 策略 3: 自动 fallback（Sherpa-ONNX 失败时切换 Vosk）
     elif engine == "auto":
-        # 首选 SenseVoice
+        # 首选 Sherpa-ONNX
         try:
-            logger.info("尝试使用 SenseVoice...")
-            return transcribe_with_sensevoice(src_audio)
+            logger.info("尝试使用 Sherpa-ONNX...")
+            return transcribe_with_sherpa(src_audio)
         except Exception as e:
-            logger.warning(f"SenseVoice 失败，切换到 Vosk：{e}")
+            logger.warning(f"Sherpa-ONNX 失败，切换到 Vosk：{e}")
             try:
                 return transcribe_with_vosk(src_audio)
             except Exception as e2:
                 logger.error(f"Vosk 也失败了：{e2}")
-                raise TranscriptionError(f"所有引擎均失败：SenseVoice({e}), Vosk({e2})")
+                raise TranscriptionError(f"所有引擎均失败：Sherpa-ONNX({e}), Vosk({e2})")
 
     else:
         raise TranscriptionError(f"未知的引擎策略：{engine}")
@@ -276,13 +291,13 @@ def transcribe(src_audio: str, engine: Optional[str] = None) -> str:
 
 def main():
     """命令行入口点"""
-    parser = argparse.ArgumentParser(description='将音频文件转写为文本（支持 SenseVoice 和 Vosk 双引擎）')
+    parser = argparse.ArgumentParser(description='将音频文件转写为文本（支持 Sherpa-ONNX 和 Vosk 双引擎）')
     parser.add_argument('audio_file', help='输入音频文件路径')
     parser.add_argument(
         '--engine', '-e',
-        choices=['sensevoice', 'vosk', 'auto'],
+        choices=['sherpa', 'vosk', 'auto'],
         default=None,
-        help='指定转写引擎（默认：auto，即 SenseVoice 失败时自动切换 Vosk）'
+        help='指定转写引擎（默认：auto，即 Sherpa-ONNX 失败时自动切换 Vosk）'
     )
     parser.add_argument(
         '--verbose', '-v',

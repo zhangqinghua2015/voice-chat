@@ -8,33 +8,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.3.0] - 2026-04-01
 
 ### Added
-- **SenseVoice 引擎集成**：新增 SenseVoice 作为首选 STT 引擎
-- **自动 Fallback 机制**：SenseVoice 失败时自动切换到 Vosk
-- **引擎策略配置**：支持 `sensevoice`、`vosk`、`auto` 三种策略
-- **中英文混合识别**：SenseVoice 原生支持中英文混合，准确率提升
-- **多语言支持**：SenseVoice 支持 50+ 种语言识别
+- **Sherpa-ONNX 引擎集成**：新增 Sherpa-ONNX 作为首选 STT 引擎
+- **自动 Fallback 机制**：Sherpa-ONNX 失败时自动切换到 Vosk
+- **引擎策略配置**：支持 `sherpa`、`vosk`、`auto` 三种策略
+- **中英文混合识别**：Sherpa-ONNX 原生支持中英文混合，准确率提升
+- **多语言支持**：Sherpa-ONNX 支持中英日韩多语言识别
 - **配置项扩展**：
   - `STT_ENGINE`: STT 引擎策略
-  - `SENSEVOICE_MODEL_DIR`: SenseVoice 模型目录
-  - `SENSEVOICE_MODEL_NAME`: SenseVoice 模型名称
+  - `SHERPA_MODEL_DIR`: Sherpa-ONNX 模型目录
+  - `SHERPA_MODEL_NAME`: Sherpa-ONNX 模型名称
+  - `SHERPA_NUM_THREADS`: Sherpa-ONNX 线程数
 
 ### Changed
 - **依赖更新**：
-  - 新增 `funasr-onnx>=0.4.0`（SenseVoice 引擎）
-  - 新增 `librosa>=0.10.0`（音频处理）
-  - 新增 `scipy>=1.11.0`（科学计算）
-- **默认引擎策略**：从 `vosk` 改为 `auto`（自动 fallback）
+  - 新增 `sherpa-onnx>=1.10.0`（Sherpa-ONNX 引擎）
+  - 移除 `funasr-onnx`（避免 CUDA/NVIDIA 依赖）
+  - 移除 `librosa`, `scipy`（Sherpa-ONNX 不需要）
+  - 保留 `numpy>=1.21.0`（Sherpa-ONNX 依赖）
+- **默认引擎策略**：从 `sensevoice` 改为 `auto`（自动 fallback）
 - **文档更新**：
-  - 更新 `DESIGN.md`，添加双引擎设计说明
-  - 更新 `README.md`，添加 SenseVoice 使用指南
+  - 更新 `DESIGN.md`，添加 Sherpa-ONNX 设计说明
+  - 更新 `README.md`，添加 Sherpa-ONNX 使用指南
   - 新增 STT 引擎对比表格
 
 ### Fixed
-- 修复中英文混合识别准确率问题（通过 SenseVoice 解决）
+- 修复中英文混合识别准确率问题（通过 Sherpa-ONNX 解决）
+- 修复 termux 环境依赖爆炸问题（移除 CUDA/NVIDIA 依赖）
 
 ### Compatibility
 - 保持 Vosk 作为备份方案，向后兼容
-- termux 环境下 SenseVoice 使用 CPU 推理
+- termux 环境下 Sherpa-ONNX 使用 CPU 推理（无 GPU 加速）
+- 内存占用优化（int8 量化模型，600-800MB）
 
 ## [2.2.1] - 2026-03-31
 
