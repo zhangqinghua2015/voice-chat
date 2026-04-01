@@ -5,13 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.3.4] - 2026-04-01
+## [2.3.5] - 2026-04-01
 
 ### Fixed
 - 修复 Sherpa-ONNX 样本归一化问题：使用 numpy 将音频数据正确缩放到 [-1, 1] 范围
 - 修复前：模型听到"静音"，输出 ". ."
 - 修复后：正确识别语音内容（如"看一下 gi 上面的热门项目"）
 - 关闭 use_itn 避免富文本标记干扰
+- **重要**：将正确的代码同步到项目源代码目录
 
 ## [2.3.3] - 2026-04-01
 

@@ -32,13 +32,14 @@
 - 配置集中化（pydantic + dotenv）
 - 提取通用校验与依赖检查（utils）
 
-### v2.3.4 - Sherpa-ONNX 归一化修复
+### v2.3.5 - Sherpa-ONNX 归一化修复（代码同步）
 - **修复**：修正 Sherpa-ONNX 样本归一化问题（使用 numpy 缩放到 [-1, 1]）
 - **修复**：关闭 use_itn 避免富文本标记干扰
+- **修复**：将正确的代码同步到项目源代码目录
 - **修复前**：模型听到"静音"，输出 ". ."
 - **修复后**：正确识别语音内容
 
-### v2.3.3 - Sherpa-ONNX 修复
+### v2.3.4 - Sherpa-ONNX 归一化修复
 - **修复**：修正 Sherpa-ONNX API 调用方式（使用 `from_sense_voice` 类方法）
 - **修复**：修正音频处理流程（先转换为 16kHz WAV，再使用 `accept_waveform`）
 - **修复**：修正 Sherpa-ONNX 模型名称和下载方式
