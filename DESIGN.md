@@ -32,6 +32,11 @@
 - 配置集中化（pydantic + dotenv）
 - 提取通用校验与依赖检查（utils）
 
+### v2.3.3 - Sherpa-ONNX 修复
+- **修复**：修正 Sherpa-ONNX API 调用方式（使用 `from_sense_voice` 类方法）
+- **修复**：修正音频处理流程（先转换为 16kHz WAV，再使用 `accept_waveform`）
+- **修复**：修正 Sherpa-ONNX 模型名称和下载方式
+
 ### v2.3.2 - 双引擎升级（Sherpa-ONNX）
 - **新增**：Sherpa-ONNX 引擎（首选，中英文混合识别）
 - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）

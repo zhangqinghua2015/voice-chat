@@ -88,9 +88,11 @@ def transcribe_with_sherpa(src_audio: str) -> str:
             model=sherpa_onnx.OfflineModelConfig(
                 sense_voice=sherpa_onnx.OfflineSenseVoiceModelConfig(
                     model=model_path,
-                    tokens=tokens_path,
-                    num_threads=SHERPA_NUM_THREADS,
+                    language="auto",  # 自动检测语言
+                    use_itn=True,  # 使用 ITN（Inverse Text Normalization）
                 ),
+                tokens=tokens_path,
+                num_threads=SHERPA_NUM_THREADS,
             )
         )
 

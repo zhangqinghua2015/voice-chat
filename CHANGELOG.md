@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.3] - 2026-04-01
+
+### Fixed
+- 修复 Sherpa-ONNX API 调用方式：使用 `from_sense_voice` 类方法
+- 修复音频处理流程：先转换为 16kHz WAV，再使用 `accept_waveform` 方法
+- 修正 Sherpa-ONNX 模型名称和下载方式
+
 ## [2.3.2] - 2026-04-01
 
 ### Fixed

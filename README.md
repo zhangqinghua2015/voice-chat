@@ -430,6 +430,11 @@ voice-chat/
 MIT
 
 ## 📅 更新日志
+- **v2.3.3 (2026-04-01)**:
+  - **修复**：修正 Sherpa-ONNX API 调用方式
+  - **修复**：修正音频处理流程（使用 `accept_waveform`）
+  - **修复**：修正 Sherpa-ONNX 模型名称和下载方式
+
 - **v2.3.2 (2026-04-01)**:
   - **重大更新**：集成 Sherpa-ONNX 引擎（首选 STT）
   - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）
