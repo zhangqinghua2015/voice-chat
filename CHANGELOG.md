@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-04-01
+
+### Fixed
+- 修复依赖爆炸问题：改用 Sherpa-ONNX 替代 funasr-onnx
+- 移除 CUDA/NVIDIA 依赖，适合 termux 环境
+- 优化内存占用（int8 量化模型，600-800MB）
+
 ## [2.3.0] - 2026-04-01
 
 ### Added
