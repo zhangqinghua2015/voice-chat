@@ -37,7 +37,7 @@
 - **新增**：自动 fallback 机制（Sherpa-ONNX 失败时切换 Vosk）
 - **新增**：引擎策略配置（sherpa/vosk/auto）
 - **优化**：中英文混合识别准确率
-- **优化**：内存占用（使用 int8 量化模型，600-800MB）
+- **优化**：内存占用（使用 onnxruntime，约 1GB）
 - **兼容**：保持 Vosk 作为备份方案
 
 ## 渠道支持现状
@@ -99,7 +99,7 @@ transcribe(audio, engine="auto")  # Sherpa-ONNX 失败时自动切换 Vosk
 |--------|--------|------|
 | `STT_ENGINE` | `sherpa` | STT 引擎策略（sherpa/vosk/auto） |
 | `SHERPA_MODEL_DIR` | `/tmp/sherpa-model` | Sherpa-ONNX 模型目录 |
-| `SHERPA_MODEL_NAME` | `sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords` | Sherpa-ONNX 模型名称 |
+| `SHERPA_MODEL_NAME` | `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` | Sherpa-ONNX 模型名称 |
 | `SHERPA_NUM_THREADS` | `4` | Sherpa-ONNX 线程数 |
 | `VOSK_PYTHON` | `sys.executable` | Vosk 使用的 Python 解释器 |
 | `VOSK_MODEL_DIR` | `/tmp/vosk-model/vosk-model-small-cn-0.22` | Vosk 模型目录 |

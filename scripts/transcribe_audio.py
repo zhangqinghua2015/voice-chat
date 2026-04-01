@@ -69,7 +69,7 @@ def transcribe_with_sherpa(src_audio: str) -> str:
 
         # 模型路径
         model_dir = os.path.join(SHERPA_MODEL_DIR, SHERPA_MODEL_NAME)
-        model_path = os.path.join(model_dir, "model.int8.onnx")
+        model_path = os.path.join(model_dir, "model.onnx")
         tokens_path = os.path.join(model_dir, "tokens.txt")
 
         # 检查模型文件
@@ -77,7 +77,8 @@ def transcribe_with_sherpa(src_audio: str) -> str:
             raise TranscriptionError(
                 f"模型文件不存在：{model_path}\n"
                 f"请下载模型：\n"
-                f"git clone https://huggingface.co/k2-fsa/sherpa-onnx-sense-voice-zh-en-ja-ko-small-with-hotwords {SHERPA_MODEL_DIR}"
+                f"wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2\n"
+                f"tar -xjf sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2 -C {SHERPA_MODEL_DIR}"
             )
         if not os.path.exists(tokens_path):
             raise TranscriptionError(f"Token 文件不存在：{tokens_path}")
